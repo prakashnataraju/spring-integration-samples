@@ -101,43 +101,36 @@ subprojects { subproject ->
 					}
 				}
 
-				if (subproject.plugins.hasPlugin('jetty')) {
-					packaging = 'war'
-					build {
-						plugins {
-							plugin {
-								groupId = 'org.mortbay.jetty'
-								artifactId = 'jetty-maven-plugin'
-								version = '8.1.14.v20131031'
-								configuration {
-									webAppConfig {
-										contextPath = '/' + subproject.name
-									}
-								}
-							}
-						}
-					}
-				}
-
 				if (subproject.plugins.hasPlugin('spring-boot')) {
 					parent {
 						groupId = 'org.springframework.boot'
 						artifactId = 'spring-boot-starter-parent'
 						version = springBootVersion
 					}
-
-					build {
-						plugins {
-							plugin {
-								groupId = 'org.springframework.boot'
-								artifactId = 'spring-boot-maven-plugin'
-							}
-						}
+				}
+			}.withXml {
+				if (subproject.plugins.hasPlugin('jetty')) {
+					asNode().appendNode('packaging', 'war')
+					asNode().appendNode('build')
+							.appendNode('plugins')
+							.appendNode('plugin').with {
+									appendNode('groupId', 'org.mortbay.jetty')
+									appendNode('artifactId', 'jetty-maven-plugin')
+									appendNode('version', '8.1.14.v20131031')
+									appendNode('configuration')
+										.appendNode('webAppConfig')
+										.appendNode('contextPath', '/' + subproject.name)
 					}
+				}
+				if (subproject.plugins.hasPlugin('spring-boot')) {
+					asNode().appendNode('build').appendNode('plugins')
+							.appendNode('plugin').with {
+									appendNode('groupId', 'org.springframework.boot')
+									appendNode('artifactId', 'spring-boot-maven-plugin')
+							}
+				}
+			}.writeTo('pom.xml')
 		}
-
-			}
-		}.writeTo('pom.xml')
 	}
 
 	eclipse {
@@ -577,7 +570,7 @@ project('kafka') {
 
 	dependencies {
 		compile 'org.springframework.boot:spring-boot-starter-integration'
-		compile ("org.springframework.integration:spring-integration-kafka:$springIntegrationKafkaVersion") {
+		compile("org.springframework.integration:spring-integration-kafka:$springIntegrationKafkaVersion") {
 			exclude group: 'org.slf4j'
 		}
 		compile "org.springframework.integration:spring-integration-core:$springIntegrationVersion"

@@ -29,7 +29,6 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.expression.common.LiteralExpression;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.QueueChannel;
@@ -63,7 +62,6 @@ import kafka.utils.ZKStringSerializer$;
  * @author Gary Russell
  * @since 4.2
  */
-@Configuration
 @SpringBootApplication
 public class Application {
 
@@ -81,7 +79,7 @@ public class Application {
 
 	public static void main(String[] args) throws Exception {
 		ConfigurableApplicationContext context
-			= new SpringApplicationBuilder(Application.class)
+				= new SpringApplicationBuilder(Application.class)
 				.web(false)
 				.run(args);
 		MessageChannel toKafka = context.getBean("toKafka", MessageChannel.class);
@@ -98,7 +96,7 @@ public class Application {
 		System.exit(0);
 	}
 
-	@ServiceActivator(inputChannel="toKafka")
+	@ServiceActivator(inputChannel = "toKafka")
 	@Bean
 	public MessageHandler handler() throws Exception {
 		KafkaProducerMessageHandler handler = new KafkaProducerMessageHandler(producerContext());
@@ -109,8 +107,7 @@ public class Application {
 
 	@Bean
 	public ConnectionFactory kafkaBrokerConnectionFactory() throws Exception {
-		DefaultConnectionFactory connectionFactory = new DefaultConnectionFactory(kafkaConfiguration());
-		return connectionFactory;
+		return new DefaultConnectionFactory(kafkaConfiguration());
 	}
 
 	@Bean
@@ -146,7 +143,7 @@ public class Application {
 	@Bean
 	public KafkaMessageListenerContainer container(OffsetManager offsetManager) throws Exception {
 		final KafkaMessageListenerContainer kafkaMessageListenerContainer = new KafkaMessageListenerContainer(
-				kafkaBrokerConnectionFactory(), new Partition[] { new Partition(this.topic, 0) });
+				kafkaBrokerConnectionFactory(), new Partition(this.topic, 0));
 		kafkaMessageListenerContainer.setOffsetManager(offsetManager);
 		kafkaMessageListenerContainer.setMaxFetch(100);
 		kafkaMessageListenerContainer.setConcurrency(1);
@@ -193,7 +190,8 @@ public class Application {
 			try {
 				AdminUtils.createTopic(client, this.topic, 1, 1, new Properties());
 			}
-			catch (TopicExistsException e) {}
+			catch (TopicExistsException e) {
+			}
 			this.running = true;
 		}
 
