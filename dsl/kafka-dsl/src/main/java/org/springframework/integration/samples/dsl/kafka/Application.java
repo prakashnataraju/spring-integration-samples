@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import javax.annotation.PostConstruct;
+
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -30,7 +32,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.integration.annotation.Gateway;
 import org.springframework.integration.annotation.IntegrationComponentScan;
@@ -42,9 +43,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.support.TopicPartitionInitialOffset;
 import org.springframework.messaging.Message;
-import org.springframework.stereotype.Service;
 
 import kafka.admin.AdminUtils;
 import kafka.common.TopicExistsException;
@@ -60,20 +59,12 @@ import kafka.utils.ZkUtils;
 @IntegrationComponentScan
 public class Application {
 
-	@Value("${kafka.topic}")
-	private String topic;
-
-	@Value("${kafka.messageKey}")
-	private String messageKey;
-
-	@Value("${kafka.broker.address}")
-	private String brokerAddress;
-
 	public static void main(String[] args) throws Exception {
-		ConfigurableApplicationContext context
-				= new SpringApplicationBuilder(Application.class)
+		ConfigurableApplicationContext context =
+				new SpringApplicationBuilder(Application.class)
 				.web(false)
 				.run(args);
+
 		KafkaGateway kafkaGateway = context.getBean(KafkaGateway.class);
 		for (int i = 0; i < 10; i++) {
 			String message = "foo" + i;
@@ -89,6 +80,30 @@ public class Application {
 
 		context.close();
 		System.exit(0);
+	}
+
+	@Value("${kafka.topic}")
+	private String topic;
+
+	@Value("${kafka.messageKey}")
+	private String messageKey;
+
+	@Value("${kafka.broker.address}")
+	private String brokerAddress;
+
+	@Value("${kafka.zookeeper.connect}")
+	private String zookeeperConnect;
+
+	@PostConstruct
+	public void init() {
+		ZkClient zkClient = new ZkClient(this.zookeeperConnect, 6000, 6000, ZKStringSerializer$.MODULE$);
+		ZkUtils zkUtils = new ZkUtils(zkClient, null, false);
+		try {
+			AdminUtils.createTopic(zkUtils, topic, 1, 1, new Properties());
+		}
+		catch (TopicExistsException e) {
+			// no-op
+		}
 	}
 
 	@MessagingGateway
@@ -125,6 +140,7 @@ public class Application {
 		Map<String, Object> props = new HashMap<>();
 		props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.brokerAddress);
 		props.put(ConsumerConfig.GROUP_ID_CONFIG, "siTestGroup");
+		props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 		props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
 		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -134,60 +150,9 @@ public class Application {
 	@Bean
 	public IntegrationFlow fromKafka() {
 		return IntegrationFlows
-				.from(Kafka09.messageDriverChannelAdapter(consumerFactory(),
-						new TopicPartitionInitialOffset(this.topic, 0)))
+				.from(Kafka09.messageDriverChannelAdapter(consumerFactory(), this.topic))
 				.channel(c -> c.queue("fromKafka"))
 				.get();
-	}
-
-	@Service
-	public static class TopicCreator implements SmartLifecycle {
-
-		@Value("${kafka.topic}")
-		private String topic;
-
-		@Value("${kafka.zookeeper.connect}")
-		private String zookeeperConnect;
-
-		private volatile boolean running;
-
-		@Override
-		public void start() {
-			ZkUtils zkUtils = new ZkUtils(new ZkClient(this.zookeeperConnect, 6000, 6000,
-					ZKStringSerializer$.MODULE$), null, false);
-			try {
-				AdminUtils.createTopic(zkUtils, topic, 1, 1, new Properties());
-			}
-			catch (TopicExistsException e) {
-				// no-op
-			}
-			this.running = true;
-		}
-
-		@Override
-		public void stop() {
-		}
-
-		@Override
-		public boolean isRunning() {
-			return this.running;
-		}
-
-		@Override
-		public int getPhase() {
-			return Integer.MIN_VALUE;
-		}
-
-		@Override
-		public boolean isAutoStartup() {
-			return true;
-		}
-
-		@Override
-		public void stop(Runnable callback) {
-			callback.run();
-		}
-
 	}
 
 }
