@@ -1,4 +1,4 @@
-{<img src="https://app.codeship.com/projects/53564a40-9394-0134-13da-6ab3c53113e2/status?branch=master" alt="Status?branch=master" />}[https://app.codeship.com/projects/186421]
+https://app.codeship.com/projects/53564a40-9394-0134-13da-6ab3c53113e2/status?branch=master
 
 Spring Integration Samples
 ==========================
